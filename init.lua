@@ -185,37 +185,47 @@ function core.set_active_view(view, override)
   set_active_view(view)
 end
 
-local quit = core.quit
-function core.quit(force)
-  if not config.nagbar then return quit(force) end
-
-  if force then quit(true) end
-  local dirty_count = 0
-  local dirty_name
-  for _, doc in ipairs(core.docs) do
-    if doc:is_dirty() then
-      dirty_count = dirty_count + 1
-      dirty_name = doc:get_name()
-    end
+local function try_get_upvalue(fn, target)
+  local i = 1
+  while true do
+    local name, value = debug.getupvalue(fn, i)
+    if not name then break end
+    if name == target then return value end
+    i = i + 1
   end
-  if dirty_count > 0 then
-    local text
-    if dirty_count == 1 then
-      text = string.format("\"%s\" has unsaved changes. Quit anyway?", dirty_name)
-    else
-      text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
-    end
+end
 
-    local opt = {
-      { font = style.font, text = "Yes" },
-      { font = style.font, text = "No" }
-    }
-    core.nagview:show("Unsaved changes", text, opt, function(item)
-      if item.text == "Yes" then quit(true) end
-    end)
-  else
-    quit(true)
+local run_threads = try_get_upvalue(core.run, "run_threads") or noop
+
+local function step() -- literally copied from lite
+  core.frame_start = system.get_time()
+  local did_redraw = core.step()
+  run_threads()
+  if not did_redraw and not system.window_has_focus() then
+    system.wait_event(0.25)
   end
+  local elapsed = system.get_time() - core.frame_start
+  system.sleep(math.max(0, 1 / config.fps - elapsed))
+end
+
+local show_confirm_dialog = system.show_confirm_dialog
+function system.show_confirm_dialog(title, msg)
+  if not config.nagbar then return show_confirm_dialog(title, msg) end
+
+  local res
+  local opt = {
+    { font = style.font, text = "Yes" },
+    { font = style.font, text = "No" }
+  }
+  core.nagview:show(title, msg, opt, function(item)
+    res = item.text == "Yes"
+  end)
+
+  while res == nil do
+    step()
+  end
+
+  return res
 end
 
 command.add(nil, {
