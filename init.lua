@@ -13,6 +13,8 @@ config.nagbar_dim_color = { common.color "rgba(0, 0, 0, 0.45)" }
 local BORDER_WIDTH = common.round(2 * SCALE)
 local BORDER_PADDING = common.round(5 * SCALE)
 
+local noop = function() end
+
 local NagView = View:extend()
 
 function NagView:new()
@@ -21,6 +23,7 @@ function NagView:new()
   self.title = "Warning"
   self.message = ""
   self.options = {}
+  self.submit = noop
 end
 
 function NagView:get_title()
@@ -102,11 +105,8 @@ end
 function NagView:on_mouse_pressed(...)
   if not NagView.super.on_mouse_pressed(self, ...) and self.selected then
     core.set_active_view(core.last_active_view, true)
-    self:on_select(self.options[self.selected])
+    self.submit(self.options[self.selected])
   end
-end
-
-function NagView:on_select(item)
 end
 
 function NagView:draw()
@@ -134,10 +134,19 @@ function NagView:draw()
   end
 end
 
-function NagView:show(title, message, options)
+function NagView:show(title, message, options, on_select, on_cancel)
   self.title = title or "Warning"
-  self.message = message or ""
+  self.message = message or "Empty?"
   self.options = options or {}
+  table.insert(options, { key = "cancel", font = style.icon_font, text = "x" })
+  self.submit = function(item)
+    self.submit = noop
+    if item.key == "cancel" then
+      on_cancel()
+    else
+      on_select(item)
+    end
+  end
   core.set_active_view(self)
 end
 
