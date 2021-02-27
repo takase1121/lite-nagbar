@@ -168,6 +168,38 @@ function core.set_active_view(view, override)
   set_active_view(view)
 end
 
+local quit = core.quit
+function core.quit(force)
+  if not config.nagbar then return quit(force) end
+
+  if force then quit(true) end
+  local dirty_count = 0
+  local dirty_name
+  for _, doc in ipairs(core.docs) do
+    if doc:is_dirty() then
+      dirty_count = dirty_count + 1
+      dirty_name = doc:get_name()
+    end
+  end
+  if dirty_count > 0 then
+    local text
+    if dirty_count == 1 then
+      text = string.format("\"%s\" has unsaved changes. Quit anyway?", dirty_name)
+    else
+      text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
+    end
+
+    local opt = {
+      { font = style.font, text = "Yes" },
+      { font = style.font, text = "No" }
+    }
+    core.nagview:show("Unsaved changes", text, opt, function(item)
+      if item.text == "Yes" then quit(true) end
+    end)
+  else
+    quit(true)
+  end
+end
 
 command.add(nil, {
   ["nagbar:disable"] = function() config.nagbar = false end,
