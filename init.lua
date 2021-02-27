@@ -151,6 +151,10 @@ function NagView:show(title, message, options, on_select, on_cancel)
   core.set_active_view(self)
 end
 
+local function is_lite_xl()
+  return not not pcall(function() return HOME end)
+end
+
 core.nagview = NagView()
 
 function core.root_view:on_mouse_moved(...)
@@ -173,7 +177,12 @@ end
 local last_view = core.active_view
 -- this method prevents splitting non-leaf node error while preserving the tree structure
 local node = RootView().root_node -- Node is not exported so we have to get it this way ;-;
-node:split("up", core.nagview, true)
+if is_lite_xl() then
+  node.is_primary_node = true
+  node:split("up", core.nagview, { y = true })
+else
+  node:split("up", core.nagview, true)
+end
 node.b:consume(core.root_view.root_node.a)
 core.root_view.root_node.a = node
 core.set_active_view(last_view)
