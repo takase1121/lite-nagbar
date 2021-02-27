@@ -153,6 +153,13 @@ end
 
 core.nagview = NagView()
 
+function core.root_view:on_mouse_moved(...)
+  RootView.on_mouse_moved(self, ...)
+  if config.nagbar then
+    system.set_cursor("arrow")
+  end
+end
+
 function core.root_view:on_mouse_pressed(...)
   if not config.nagbar then return RootView.on_mouse_pressed(self, ...) end
   if core.active_view == core.nagview then
