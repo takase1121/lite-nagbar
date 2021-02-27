@@ -173,7 +173,8 @@ end
 local last_view = core.active_view
 -- this method prevents splitting non-leaf node error while preserving the tree structure
 local node = RootView().root_node -- Node is not exported so we have to get it this way ;-;
-node:split("up", core.nagview, true)
+node.is_primary_node = true
+node:split("up", core.nagview, { y = true })
 node.b:consume(core.root_view.root_node.a)
 core.root_view.root_node.a = node
 core.set_active_view(last_view)
@@ -185,11 +186,16 @@ function core.set_active_view(view, override)
   set_active_view(view)
 end
 
-local quit = core.quit
-function core.quit(force)
-  if not config.nagbar then return quit(force) end
+local confirm_close_all = core.confirm_close_all
+function core.confirm_close_all()
+  if not config.nagbar then return confirm_close_all() end
 
-  if force then quit(true) end
+  local quit_with_function = debug.getinfo(2, "f") or {}
+  quit_with_function = quit_with_function.func or function() os.exit() end
+
+  local t = debug.getinfo(3, "n") or {}
+  local quit_fn = t.name == "restart" and function() core.restart_request = true end or os.exit
+
   local dirty_count = 0
   local dirty_name
   for _, doc in ipairs(core.docs) do
@@ -211,10 +217,10 @@ function core.quit(force)
       { font = style.font, text = "No" }
     }
     core.nagview:show("Unsaved changes", text, opt, function(item)
-      if item.text == "Yes" then quit(true) end
+      if item.text == "Yes" then quit_with_function(quit_fn, true) end
     end)
   else
-    quit(true)
+    quit_with_function(quit_fn, true)
   end
 end
 
