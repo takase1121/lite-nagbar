@@ -138,12 +138,12 @@ function NagView:show(title, message, options, on_select, on_cancel)
   self.title = title or "Warning"
   self.message = message or "Empty?"
   self.options = options or {}
-  table.insert(options, { key = "cancel", font = style.icon_font, text = "x" })
+  if on_cancel then table.insert(options, { key = "cancel", font = style.icon_font, text = "x" }) end
   self.submit = function(item)
     self.submit = noop
-    if item.key == "cancel" then
+    if item.key == "cancel" and on_cancel then
       on_cancel()
-    else
+    elseif on_select then
       on_select(item)
     end
   end
