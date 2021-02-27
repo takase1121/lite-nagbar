@@ -153,6 +153,16 @@ end
 
 core.nagview = NagView()
 
+function core.root_view:on_mouse_pressed(...)
+  if not config.nagbar then return RootView.on_mouse_pressed(self, ...) end
+  if core.active_view == core.nagview then
+    -- redirect all mouse click to nagview
+    core.nagview:on_mouse_pressed(...)
+  else
+    RootView.on_mouse_pressed(self, ...)
+  end
+end
+
 local last_view = core.active_view
 -- this method prevents splitting non-leaf node error while preserving the tree structure
 local node = RootView().root_node -- Node is not exported so we have to get it this way ;-;
