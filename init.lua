@@ -4,6 +4,7 @@ local common = require "core.common"
 local command = require "core.command"
 local View = require "core.view"
 local style = require "core.style"
+local RootView = require "core.rootview"
 
 config.nagbar_color = { common.color "#FF0000" }
 config.nagbar_text_color = { common.color "#FFFFFF" }
@@ -142,7 +143,11 @@ end
 core.nagview = NagView()
 
 local last_view = core.active_view
-core.root_view.root_node.a:split("up", core.nagview, true)
+-- this method prevents splitting non-leaf node error while preserving the tree structure
+local node = RootView().root_node -- Node is not exported so we have to get it this way ;-;
+node:split("up", core.nagview, true)
+node.b:consume(core.root_view.root_node.a)
+core.root_view.root_node.a = node
 core.set_active_view(last_view)
 
 local set_active_view = core.set_active_view
@@ -150,7 +155,6 @@ function core.set_active_view(view, override)
   if core.active_view == core.nagview and not override then return end -- prevent stealing focus
   set_active_view(view)
 end
-
 
 -- TESTING CODE
 command.add(nil, {
