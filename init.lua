@@ -6,6 +6,7 @@ local View = require "core.view"
 local style = require "core.style"
 local RootView = require "core.rootview"
 
+config.nagbar = true
 config.nagbar_color = { common.color "#FF0000" }
 config.nagbar_text_color = { common.color "#FFFFFF" }
 config.nagbar_dim_color = { common.color "rgba(0, 0, 0, 0.45)" }
@@ -162,13 +163,14 @@ core.set_active_view(last_view)
 
 local set_active_view = core.set_active_view
 function core.set_active_view(view, override)
+  if not config.nagbar then return set_active_view(view) end
   if core.active_view == core.nagview and not override then return end -- prevent stealing focus
   set_active_view(view)
 end
 
--- TESTING CODE
+
 command.add(nil, {
-  ["nagbar:show"] = function()
-    core.nagview:show("PLEASE NO", "NO", { "lmao", "wut" })
-  end
+  ["nagbar:disable"] = function() config.nagbar = false end,
+  ["nagbar:enable"]  = function() config.nagbar = true end,
+  ["nagbar:toggle"]  = function() config.nagbar = not config.nagbar end
 })
