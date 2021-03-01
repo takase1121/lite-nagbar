@@ -186,42 +186,64 @@ function core.set_active_view(view, override)
   set_active_view(view)
 end
 
-local confirm_close_all = core.confirm_close_all
-function core.confirm_close_all()
-  if not config.nagbar then return confirm_close_all() end
-
-  local quit_with_function = debug.getinfo(2, "f") or {}
-  quit_with_function = quit_with_function.func or function() os.exit() end
-
-  local t = debug.getinfo(3, "n") or {}
-  local quit_fn = t.name == "restart" and function() core.restart_request = true end or os.exit
-
-  local dirty_count = 0
-  local dirty_name
-  for _, doc in ipairs(core.docs) do
-    if doc:is_dirty() then
-      dirty_count = dirty_count + 1
-      dirty_name = doc:get_name()
-    end
+local function try_get_upvalue(fn, target)
+  local i = 1
+  while true do
+    local name, value = debug.getupvalue(fn, i)
+    if not name then break end
+    if name == target then return value end
+    i = i + 1
   end
-  if dirty_count > 0 then
-    local text
-    if dirty_count == 1 then
-      text = string.format("\"%s\" has unsaved changes. Quit anyway?", dirty_name)
-    else
-      text = string.format("%d docs have unsaved changes. Quit anyway?", dirty_count)
-    end
+end
 
-    local opt = {
-      { font = style.font, text = "Yes" },
-      { font = style.font, text = "No" }
-    }
-    core.nagview:show("Unsaved changes", text, opt, function(item)
-      if item.text == "Yes" then quit_with_function(quit_fn, true) end
-    end)
+local run_threads = try_get_upvalue(core.run, "run_threads") or noop
+
+local function step(idle_iterations, frame_duration) -- copied from lite-xl
+  core.frame_start = system.get_time()
+  local did_redraw = core.step()
+  local need_more_work = run_threads()
+  if core.restart_request then return end
+  if not did_redraw and not need_more_work then
+    idle_iterations = idle_iterations + 1
+    -- do not wait of events at idle_iterations = 1 to give a chance at core.step to run
+    -- and set "redraw" flag.
+    if idle_iterations > 1 then
+      if system.window_has_focus() then
+        -- keep running even with no events to make the cursor blinks
+        system.wait_event(frame_duration)
+      else
+        system.wait_event()
+      end
+    end
   else
-    quit_with_function(quit_fn, true)
+    idle_iterations = 0
+    local elapsed = system.get_time() - core.frame_start
+    system.sleep(math.max(0, frame_duration - elapsed))
   end
+  return idle_iterations
+end
+
+
+local show_confirm_dialog = system.show_confirm_dialog
+function system.show_confirm_dialog(title, msg)
+  if not config.nagbar then return show_confirm_dialog(title, msg) end
+
+  local res
+  local opt = {
+    { font = style.font, text = "Yes" },
+    { font = style.font, text = "No" }
+  }
+  core.nagview:show(title, msg, opt, function(item)
+    res = item.text == "Yes"
+  end)
+
+  local idle_iterations, frame_duration = 0, 1 / config.fps
+  while res == nil do
+    idle_iterations = step(idle_iterations, frame_duration)
+    if not idle_iterations then return false end
+  end
+
+  return res
 end
 
 command.add(nil, {
